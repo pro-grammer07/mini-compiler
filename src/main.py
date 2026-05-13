@@ -6,7 +6,13 @@ from pathlib import Path
 from ast_printer import dump
 from codegen import TargetCodeGen
 from ir import IRGenerator
-from lexer import Lexer, LexerError, build_lex_symbol_table
+from lexer import (
+    Lexer,
+    LexerError,
+    build_lex_symbol_table,
+    dfa_diagram_text,
+    dfa_states_reference,
+)
 from llvm_codegen import LLVMCodeGen
 from optimizer import optimize
 from parser import Parser, ParserError
@@ -41,6 +47,7 @@ add          := mul { ("+" | "-") mul } ;
 mul          := unary { ("*" | "/" | "%") unary } ;
 unary        := ("!" | "-") unary | primary ;
 primary      := NUMBER
+              | STR
               | ID
               | ID "(" [ args ] ")"
               | ID "[" expr "]"
@@ -103,13 +110,31 @@ def run_lli(llvm_file: str):
         print(proc.stderr)
 
 
-def compile_source(source: str, phase: str, emit_llvm: bool = False, llvm_out: str = "") -> bool:
+def compile_source(
+    source: str,
+    phase: str,
+    emit_llvm: bool = False,
+    llvm_out: str = "",
+    *,
+    show_dfa: bool = True,
+    dfa_trace: bool = True,
+) -> bool:
     has_errors = False
     print("=== SOURCE CODE ===")
     print(source)
 
-    lexer = Lexer(source)
+    if show_dfa:
+        print("\n=== LEXER DFA (REFERENCE) ===")
+        print(dfa_diagram_text())
+        print(dfa_states_reference())
+
+    lexer = Lexer(source, trace_dfa=dfa_trace)
     tokens, lex_errors = lexer.tokenize_with_errors()
+    if dfa_trace and lexer.dfa_traces:
+        print("\n=== DFA TRACE (per token) ===")
+        for row in lexer.dfa_traces:
+            print(row)
+
     print("\n=== LEXICAL ANALYSIS (TOKENS) ===")
     print(f"{'LINE':<6} {'TYPE':<12} {'LEXEME':<18}")
     print("-" * 38)
@@ -235,6 +260,18 @@ def main():
         action="store_true",
         help="Execute emitted LLVM IR directly with lli",
     )
+    argp.add_argument(
+        "--show-dfa",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Print ASCII DFA before tokenizing (default: on; use --no-show-dfa to skip)",
+    )
+    argp.add_argument(
+        "--dfa-trace",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Print per-token DFA state path (default: on; use --no-dfa-trace to skip)",
+    )
     args = argp.parse_args()
 
     source = Path(args.file).read_text(encoding="utf-8")
@@ -244,7 +281,14 @@ def main():
 
         ll_path = args.llvm_out or "out.ll"
         should_emit_llvm = args.emit_llvm or args.build_native or args.run_lli
-        has_errors = compile_source(source, args.phase, emit_llvm=should_emit_llvm, llvm_out=ll_path)
+        has_errors = compile_source(
+            source,
+            args.phase,
+            emit_llvm=should_emit_llvm,
+            llvm_out=ll_path,
+            show_dfa=args.show_dfa,
+            dfa_trace=args.dfa_trace,
+        )
 
         if has_errors:
             print("\nCompilation finished with errors.")

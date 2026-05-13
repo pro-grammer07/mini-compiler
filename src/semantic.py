@@ -209,6 +209,10 @@ class SemanticAnalyzer:
         if isinstance(expr, BinaryOp):
             lt = self.type_of(expr.left)
             rt = self.type_of(expr.right)
+            if lt == "string" or rt == "string":
+                raise SemanticError(
+                    f"Operator {expr.op!r} is not defined for string literals"
+                )
             if expr.op in ("+", "-", "*", "/", "%"):
                 if lt == "float" or rt == "float":
                     return "float"

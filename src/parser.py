@@ -26,6 +26,13 @@ class ParserError(Exception):
     pass
 
 
+def _number_literal_type(lex: str) -> str:
+    s = lex.lower()
+    if "e" in s or "." in s:
+        return "float"
+    return "int"
+
+
 class Parser:
     def __init__(self, tokens: List[Token]):
         self.tokens = tokens
@@ -270,8 +277,11 @@ class Parser:
         tok = self.cur()
         if self.match("NUMBER"):
             self.eat("NUMBER")
-            lit_type = "float" if "." in tok.value else "int"
+            lit_type = _number_literal_type(tok.value)
             return Literal(tok.value, lit_type, line=tok.line)
+        if self.match("STR"):
+            self.eat("STR")
+            return Literal(tok.value, "string", line=tok.line)
         if self.match("ID"):
             id_tok = self.eat("ID")
             name = id_tok.value
