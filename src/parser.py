@@ -66,8 +66,14 @@ class Parser:
             try:
                 decls.append(self.parse_decl())
             except ParserError as e:
-                tok = self.cur()
-                self.errors.append(f"Syntax error at line {tok.line}, col {tok.column}: {e}")
+                msg = str(e)
+                if msg.startswith("Syntax error"):
+                    self.errors.append(msg)
+                else:
+                    tok = self.cur()
+                    self.errors.append(
+                        f"Syntax error at line {tok.line}, col {tok.column}: {msg}"
+                    )
                 self.synchronize()
             if self.i == start_i:
                 if self.cur().kind == "EOF":
@@ -107,6 +113,13 @@ class Parser:
             self.eat("SYMBOL", "[")
             size = int(self.eat("NUMBER").value)
             self.eat("SYMBOL", "]")
+        if not self.match("SYMBOL", ";"):
+            tok = self.cur()
+            raise ParserError(
+                f"Syntax error at line {name_tok.line}, col {name_tok.column}: "
+                f"missing ';' after global variable '{name}' "
+                f"(found {tok.kind} {tok.value!r} at line {tok.line}, col {tok.column})"
+            )
         self.eat("SYMBOL", ";")
         return VarDecl(t, name, size, line=name_tok.line)
 
@@ -136,10 +149,14 @@ class Parser:
         self.eat("SYMBOL", "{")
         items = []
         while not self.match("SYMBOL", "}"):
-            if self.match("KEYWORD") and self.cur().value in ("int", "float", "void"):
-                items.append(self.parse_local_decl())
-            else:
-                items.append(self.parse_stmt())
+            try:
+                if self.match("KEYWORD") and self.cur().value in ("int", "float", "void"):
+                    items.append(self.parse_local_decl())
+                else:
+                    items.append(self.parse_stmt())
+            except ParserError as e:
+                self.errors.append(str(e))
+                self.synchronize()
         self.eat("SYMBOL", "}")
         return Block(items)
 
@@ -155,6 +172,13 @@ class Parser:
             self.eat("SYMBOL", "[")
             size = int(self.eat("NUMBER").value)
             self.eat("SYMBOL", "]")
+        if not self.match("SYMBOL", ";"):
+            tok = self.cur()
+            raise ParserError(
+                f"Syntax error at line {name_tok.line}, col {name_tok.column}: "
+                f"missing ';' after local variable '{name}' "
+                f"(found {tok.kind} {tok.value!r} at line {tok.line}, col {tok.column})"
+            )
         self.eat("SYMBOL", ";")
         return VarDecl(t, name, size, line=name_tok.line)
 

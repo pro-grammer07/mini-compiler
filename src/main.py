@@ -113,7 +113,6 @@ def run_lli(llvm_file: str):
 def compile_source(
     source: str,
     phase: str,
-    emit_llvm: bool = False,
     llvm_out: str = "",
     *,
     show_dfa: bool = True,
@@ -206,18 +205,17 @@ def compile_source(
     for line in target:
         print(line)
 
-    if emit_llvm:
-        function_params = {}
-        for d in ast.decls:
-            if hasattr(d, "params") and hasattr(d, "name"):
-                function_params[d.name] = [p.name for p in d.params]
-        llvm = LLVMCodeGen().generate(opt, function_params)
-        print("\n=== LLVM IR (TEXT) ===")
-        for line in llvm:
-            print(line)
-        if llvm_out:
-            Path(llvm_out).write_text("\n".join(llvm), encoding="utf-8")
-            print(f"\nLLVM IR written to: {llvm_out}")
+    function_params = {}
+    for d in ast.decls:
+        if hasattr(d, "params") and hasattr(d, "name"):
+            function_params[d.name] = [p.name for p in d.params]
+    llvm = LLVMCodeGen().generate(opt, function_params)
+    print("\n=== LLVM IR (TEXT) ===")
+    for line in llvm:
+        print(line)
+    if llvm_out:
+        Path(llvm_out).write_text("\n".join(llvm), encoding="utf-8")
+        print(f"\nLLVM IR written to: {llvm_out}")
     return has_errors
 
 
@@ -233,7 +231,7 @@ def main():
     argp.add_argument(
         "--emit-llvm",
         action="store_true",
-        help="Emit textual LLVM IR after target code",
+        help="Write LLVM IR to disk (uses --llvm-out or default out.ll); IR is always printed after target code",
     )
     argp.add_argument(
         "--llvm-out",
@@ -280,12 +278,13 @@ def main():
             raise RuntimeError("--run-native requires --build-native")
 
         ll_path = args.llvm_out or "out.ll"
-        should_emit_llvm = args.emit_llvm or args.build_native or args.run_lli
+        need_ll_file = bool(args.llvm_out) or args.emit_llvm or args.build_native or args.run_lli
+        llvm_write_path = ll_path if need_ll_file else ""
+
         has_errors = compile_source(
             source,
             args.phase,
-            emit_llvm=should_emit_llvm,
-            llvm_out=ll_path,
+            llvm_out=llvm_write_path,
             show_dfa=args.show_dfa,
             dfa_trace=args.dfa_trace,
         )
