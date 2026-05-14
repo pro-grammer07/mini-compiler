@@ -11,7 +11,7 @@ int sum(int n) {
 int main() {
     int a[5];
     int i;
-    int total
+    int total;
     i = 0;
     while (i < 5) {
         a[i] = i * 2;

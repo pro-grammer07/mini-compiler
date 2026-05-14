@@ -168,6 +168,23 @@ def compile_source(
     if phase == "parse":
         return has_errors
 
+    if lex_errors or parser.errors:
+        print("\n=== SEMANTIC ANALYSIS (TYPE/SCOPE TRACE) ===")
+        if lex_errors:
+            print(
+                "Skipped: fix lexical errors first. "
+                "Semantic analysis is not run on a broken token stream."
+            )
+        else:
+            print(
+                "Skipped: fix syntax errors first. "
+                "Semantic analysis on a recovered partial AST would report misleading errors."
+            )
+        if phase == "semantic":
+            return has_errors
+        print("\nSkipping IR/code generation due to previous errors.")
+        return True
+
     sema = SemanticAnalyzer()
     scope_trace = sema.analyze(ast)
     print("\n=== SEMANTIC ANALYSIS (TYPE/SCOPE TRACE) ===")
